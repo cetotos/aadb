@@ -6,7 +6,6 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
-import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.RemoteInput
 import com.torpos.aadb.MainActivity
@@ -78,7 +77,7 @@ object AdbHostNotification {
 
         val pairAction = NotificationCompat.Action.Builder(
             R.drawable.ic_launcher_foreground,
-            "Pair",
+            "ENTER CODE",
             pairPendingIntent
         ).addRemoteInput(remoteInput)
             .setAllowGeneratedReplies(false)

@@ -1,4 +1,4 @@
-# Gradle/Android
+# gradle and studio
 .gradle/
 build/
 **/build/
@@ -10,8 +10,12 @@ local.properties
 *.jks
 *.keystore
 
-# NDK/ADB outputs
+# ADB
 adb/build-android*/
 
-# OS
+# app builds
+*.apk
+*.aab
+app/release/
+
 .DS_Store

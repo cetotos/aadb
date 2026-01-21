@@ -42,10 +42,6 @@ object AdbHostRepository {
         _state.update { it.copy(pairingCode = value, lastError = null) }
     }
 
-    fun updateConnectAddress(value: String) {
-        _state.update { it.copy(connectAddress = value, lastError = null) }
-    }
-
     fun updateCommandInput(value: String) {
         _state.update { it.copy(commandInput = value, lastError = null) }
     }
@@ -55,7 +51,17 @@ object AdbHostRepository {
     }
 
     fun setDetectedConnectAddress(value: String) {
-        _state.update { it.copy(connectAddress = value) }
+        _state.update { current ->
+            val updatedState = if (value.isNotBlank() &&
+                current.connectionState != ConnectionState.Connected &&
+                current.connectionState != ConnectionState.Paired
+            ) {
+                current.copy(connectAddress = value, connectionState = ConnectionState.Paired)
+            } else {
+                current.copy(connectAddress = value)
+            }
+            updatedState
+        }
         tryAutoConnect()
     }
 
@@ -188,6 +194,11 @@ object AdbHostRepository {
             }
         }
 
+        if (shellMode && isInteractiveShellCommand(trimmed)) {
+            rejectCommand(displayCommand, "Interactive su isn't supported. Use su -c <cmd>.")
+            return false
+        }
+
         if (!backendAvailable) {
             rejectCommand(displayCommand, "ADB backend isn't available in this build.")
             return false
@@ -216,19 +227,19 @@ object AdbHostRepository {
             return false
         }
 
-        val subcommand = commandIndex?.let { args.getOrNull(it) }
-        val nextArg = commandIndex?.let { args.getOrNull(it + 1) }
+        val subcommand = commandIndex.let { args.getOrNull(it) }
+        val nextArg = commandIndex.let { args.getOrNull(it + 1) }
 
         val effectiveCommand = if (subcommand?.startsWith("wait-for-") == true) {
-            args.getOrNull((commandIndex ?: 0) + 1)
+            args.getOrNull(commandIndex + 1)
         } else {
             subcommand
         }
 
         val actualCommandIndex = if (subcommand?.startsWith("wait-for-") == true) {
-            (commandIndex ?: 0) + 1
+            commandIndex + 1
         } else {
-            commandIndex ?: 0
+            commandIndex
         }
         val commandArgs = args.drop(actualCommandIndex + 1)
         val commandTarget = when (effectiveCommand) {
@@ -249,7 +260,7 @@ object AdbHostRepository {
 
         if (!shellMode && (effectiveCommand == "connect" || effectiveCommand == "pair")) {
             val target = if (subcommand?.startsWith("wait-for-") == true) {
-                args.getOrNull((commandIndex ?: 0) + 2)
+                args.getOrNull(commandIndex + 2)
             } else {
                 nextArg
             }
@@ -271,7 +282,15 @@ object AdbHostRepository {
         }
         addLog("Command running: $displayCommand")
         executor.execute {
-            val exitCode = AdbNative.runCommandStreaming(args.toTypedArray())
+            val exitCode = try {
+                AdbNative.runCommandStreaming(args.toTypedArray())
+            } catch (e: Exception) {
+                reportError("Command failed to run: ${e.message ?: "unknown error"}")
+                -1
+            }
+            if (exitCode != 0 && _state.value.lastCommandOutput.isEmpty()) {
+                appendCommandOutput("Command failed with exit code $exitCode.")
+            }
             val outputLines = _state.value.lastCommandOutput
             if (exitCode == 0) {
                 when (effectiveCommand) {
@@ -431,26 +450,27 @@ object AdbHostRepository {
         while (i < args.size) {
             val arg = args[i]
             if (!arg.startsWith("-")) return i
-            when {
+            i += when {
                 arg == "--" -> return i + 1
                 arg == "-s" || arg == "-t" || arg == "-H" || arg == "-P" || arg == "-L" ||
-                    arg == "--reply-fd" || arg == "--one-device" -> i += 2
+                        arg == "--reply-fd" || arg == "--one-device" -> 2
+
                 arg.startsWith("-s") || arg.startsWith("-t") || arg.startsWith("-H") ||
-                    arg.startsWith("-P") || arg.startsWith("-L") -> i += 1
-                arg == "-d" || arg == "-e" || arg == "-a" -> i += 1
+                        arg.startsWith("-P") || arg.startsWith("-L") -> 1
+
+                arg == "-d" || arg == "-e" || arg == "-a" -> 1
                 else -> return i
             }
         }
         return null
     }
 
-    private fun parseNativeResult(result: String): Pair<Int, String> {
-        val lines = result.split('\n', limit = 2)
-        val exitCode = lines.firstOrNull()
-            ?.removePrefix("EXIT=")
-            ?.toIntOrNull() ?: -1
-        val output = if (lines.size > 1) lines[1].trim() else ""
-        return exitCode to output
+    private fun isInteractiveShellCommand(command: String): Boolean {
+        val lower = command.trim().lowercase()
+        if (!Regex("""^su(\s|$)""").containsMatchIn(lower)) return false
+        val hasCommandFlag = Regex("""(^|\s)-c(\s|$)""").containsMatchIn(lower) ||
+            Regex("""(^|\s)--command(=|\s)""").containsMatchIn(lower)
+        return !hasCommandFlag
     }
 
     private fun appendCommandOutput(line: String) {
@@ -477,16 +497,13 @@ object AdbHostRepository {
         return when (command) {
             "devices", "version", "help" -> null
             "root", "unroot" -> null
-            "shell" -> if (commandArgs.isNotEmpty()) null else "Shell needs a command here. Try: adb shell getprop"
-            "connect" -> if (commandArgs.size == 1) null else "Usage: adb connect HOST[:PORT]"
-            "disconnect" -> if (commandArgs.size <= 1) null else "Usage: adb disconnect [HOST[:PORT]]"
-            "pair" -> if (commandArgs.size in 1..2) null else "Usage: adb pair HOST[:PORT] [PAIRING CODE]"
+            "shell" -> if (commandArgs.isNotEmpty()) null else "Shell needs a command"
             "push" -> if (commandArgs.size >= 2) null else "Usage: adb push <source> <destination>"
             "pull" -> if (commandArgs.isNotEmpty()) null else "Usage: adb pull <remote> [local]"
             "install" -> if (commandArgs.isNotEmpty()) null else "Usage: adb install <apk>"
             "install-multiple" -> if (commandArgs.isNotEmpty()) null else "Usage: adb install-multiple <apk...>"
             "uninstall" -> if (commandArgs.isNotEmpty()) null else "Usage: adb uninstall <package>"
-            else -> "That command isn’t supported here yet. Try devices, root, shell, connect, pair, push, pull, install, or uninstall."
+            else -> "Incorrect command. Typo?"
         }
     }
 }

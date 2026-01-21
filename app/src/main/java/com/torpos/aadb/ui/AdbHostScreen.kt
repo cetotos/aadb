@@ -361,7 +361,7 @@ private fun PairingCard(
             )
             if (!serverRunning) {
                 Text(
-                    text = "Start the server to look for a pairing address.",
+                    text = "Already paired or server is offline",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -476,15 +476,6 @@ private fun AdbInputCard(
                 text = "Terminal",
                 style = MaterialTheme.typography.titleLarge
             )
-            Text(
-                text = if (shellMode) {
-                    "Shell mode runs commands inside the device. Use adb root first if you need root."
-                } else {
-                    "Type an adb command and watch the output stream live."
-                },
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
             val terminalBackground = MaterialTheme.colorScheme.surfaceColorAtElevation(1.dp)
             val terminalText = MaterialTheme.colorScheme.onSurface
             val terminalMuted = MaterialTheme.colorScheme.onSurfaceVariant
@@ -516,7 +507,7 @@ private fun AdbInputCard(
                 FilterChip(
                     selected = shellMode,
                     onClick = onToggleShellMode,
-                    label = { Text(if (shellMode) "Shell mode" else "adb mode") },
+                    label = { Text(if (shellMode) "shell mode" else "adb mode") },
                     colors = FilterChipDefaults.filterChipColors(
                         selectedContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
                     )
@@ -524,7 +515,7 @@ private fun AdbInputCard(
             }
             if (!serverRunning) {
                 Text(
-                    text = "Server must be running to run commands",
+                    text = "Server must be running to run commands.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -608,7 +599,7 @@ private fun AdbInputCard(
                     OutlinedTextField(
                         value = command,
                         onValueChange = onCommandChange,
-                        label = { Text(if (shellMode) "Shell command" else "Command") },
+                        label = { Text(if (shellMode) "Shell command" else "Adb command") },
                         placeholder = { Text(if (shellMode) "whoami" else "adb devices") },
                         modifier = Modifier.weight(1f),
                         singleLine = true,
@@ -679,7 +670,7 @@ private fun ErrorCard(message: String, onDismiss: () -> Unit) {
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Text(
-                text = "Action needed",
+                text = "Error",
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onErrorContainer
             )
@@ -692,7 +683,7 @@ private fun ErrorCard(message: String, onDismiss: () -> Unit) {
                 onClick = onDismiss,
                 modifier = Modifier.align(Alignment.End)
             ) {
-                Text("Dismiss")
+                Text("Close")
             }
         }
     }
