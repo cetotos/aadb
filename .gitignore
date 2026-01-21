@@ -1,0 +1,17 @@
+# Gradle/Android
+.gradle/
+build/
+**/build/
+local.properties
+.cxx/
+*.iml
+.idea/
+.kotlin/
+*.jks
+*.keystore
+
+# NDK/ADB outputs
+adb/build-android*/
+
+# OS
+.DS_Store
