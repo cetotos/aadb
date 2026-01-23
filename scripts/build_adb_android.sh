@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+START_TIME=$(date +%s)
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
@@ -6,8 +7,8 @@ ADB_ROOT="$ROOT_DIR/adb"
 
 NDK_HOME="${ANDROID_NDK_HOME:-${NDK_HOME:-}}"
 if [[ -z "$NDK_HOME" ]]; then
-  echo "ANDROID_NDK_HOME (or NDK_HOME) is not set." >&2
-  echo "Set it to your NDK path, e.g. ANDROID_NDK_HOME=~/Android/Sdk/ndk/27.0.12077973" >&2
+  echo "Can't find NDK" >&2
+  echo "Please set ANDROID_NDK_HOME or NDK_HOME to your NDK installation" >&2
   exit 1
 fi
 
@@ -19,7 +20,7 @@ fi
 
 PROTOC_BIN="${PROTOC_BIN:-$(command -v protoc || true)}"
 if [[ -z "$PROTOC_BIN" ]]; then
-  echo "protoc not found in PATH. Install protobuf compiler (protoc)." >&2
+  echo "protoc not found. Please install protobuf compiler" >&2
   exit 1
 fi
 
@@ -44,7 +45,10 @@ build_abi() {
   cmake --build "$build_dir" --target adb_host_wireless
 }
 
-build_abi "arm64-v8a" "$ADB_ROOT/build-android"
+build_abi "arm64-v8a" "$ADB_ROOT/build-android-arm64"
 build_abi "x86_64" "$ADB_ROOT/build-android-x86_64"
 
-echo "ADB Android libs built successfully."
+END_TIME=$(date +%s)
+TIME=$((END_TIME - START_TIME))
+echo "Built successfully (${TIME}s)"
+
